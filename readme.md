@@ -1,4 +1,5 @@
 # CI Test Runner Environment
+![ci workflow](https://github.com/doxxile/ci-test-runner/actions/workflows/main.yml/badge.svg)
 
 Этот репозиторий предназначен для поддержания и запуска **персистентной (stateful) среды для сборки и тестирования** нашего основного проекта.
 
