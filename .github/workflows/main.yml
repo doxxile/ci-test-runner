@@ -1,0 +1,81 @@
+name: VDS Tunnel to GitHub Actions
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+
+    steps:
+      - name: Generate SSH Keys and Display Public Key
+        id: ssh_keys
+        run: |
+          # Генерируем новую пару SSH-ключей без пароля
+          ssh-keygen -t rsa -b 4096 -f github_action_key -N ""
+          
+          # Получаем приватный ключ для секрета
+          PRIVATE_KEY=$(cat github_action_key)
+          
+          # Получаем публичный ключ для добавления на VDS
+          PUBLIC_KEY=$(cat github_action_key.pub)
+          
+          echo "====================== ATTENTION! ONE-TIME SETUP ======================"
+          echo "1. Create a secret in your GitHub repository named 'VDS_SSH_PRIVATE_KEY'."
+          echo "2. Paste the ENTIRE content below (from '-----BEGIN...' to '...END RSA PRIVATE KEY-----') into this secret:"
+          echo "----------------------------- PRIVATE KEY -----------------------------"
+          echo "$PRIVATE_KEY"
+          echo "-----------------------------------------------------------------------"
+          echo "3. Connect to your VDS and add the following line to the file /home/tunneler/.ssh/authorized_keys:"
+          echo "----------------------------- PUBLIC KEY ------------------------------"
+          echo "$PUBLIC_KEY"
+          echo "-----------------------------------------------------------------------"
+          echo "After you've done this, cancel this workflow and run it again."
+          echo "======================================================================="
+          
+          # Этот шаг будет висеть, чтобы ты успел все скопировать
+          sleep 3600
+
+      - name: Setup SSH Server and Tunnel
+        # Этот шаг начнет работать только после того, как ты настроишь ключи и перезапустишь воркфлоу
+        env:
+          VDS_IP: ${{ secrets.VDS_IP }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+          VDS_SSH_PRIVATE_KEY: ${{ secrets.VDS_SSH_PRIVATE_KEY }}
+        run: |
+          # --- Настраиваем SSH-сервер на воркере ---
+          sudo apt-get update && sudo apt-get install -y openssh-server
+          # !!! ЗАМЕНИ 'YourStrongPasswordHere' НА СВОЙ ПАРОЛЬ !!!
+          sudo useradd -m -s /bin/bash doxile && echo "doxile:YourStrongPasswordHere" | sudo chpasswd
+          sudo service ssh start
+
+          # --- Настраиваем SSH-клиент для создания туннеля ---
+          mkdir -p ~/.ssh
+          echo "${VDS_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          
+          # Добавляем VDS в известные хосты, чтобы не было запроса "yes/no"
+          ssh-keyscan -H "${VDS_IP}" >> ~/.ssh/known_hosts
+
+          # --- Запускаем обратный туннель в фоновом режиме ---
+          # Все, что придет на порт 2222 нашего VDS, будет перенаправлено на порт 22 этого воркера
+          ssh -f -N -R 0.0.0.0:2222:localhost:22 ${VDS_USER}@${VDS_IP}
+
+      - name: Display Connection Info
+        env:
+          VDS_IP: ${{ secrets.VDS_IP }}
+        run: |
+          echo "========================================================================="
+          echo "Tunnel is active!"
+          echo ""
+          echo "To connect to this GitHub Actions runner, use this command:"
+          echo ""
+          echo "ssh doxile@${VDS_IP} -p 2222"
+          echo ""
+          echo "Password: YourStrongPasswordHere"
+          echo "========================================================================="
+      
+      - name: Keep Alive
+        run: |
+          sleep 21000 # ~5 часов 50 минут
