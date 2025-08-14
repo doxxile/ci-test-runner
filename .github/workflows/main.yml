@@ -1,4 +1,4 @@
-name: VDS Tunnel to GitHub Actions
+name: Enable Runner
 
 on:
   workflow_dispatch:
