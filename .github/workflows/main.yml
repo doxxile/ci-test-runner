@@ -19,7 +19,7 @@ jobs:
           # настраиваем ssh-сервер
           sudo apt-get update && sudo apt-get install -y openssh-server
           # !!! не забудь поменять пароль !!!
-          sudo useradd -m -s /bin/bash doxile && echo "doxile:YourStrongPasswordHere" | sudo chpasswd
+          sudo useradd -m -s /bin/bash doxile && echo "doxile:testing" | sudo chpasswd
           sudo usermod -ag sudo doxile
           sudo service ssh start
 
