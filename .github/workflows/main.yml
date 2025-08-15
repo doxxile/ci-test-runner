@@ -1,5 +1,4 @@
-name: perpetual linux server (password auth)
-
+name: perpetual
 on:
   workflow_dispatch:
   repository_dispatch:
