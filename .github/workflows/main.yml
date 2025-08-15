@@ -1,56 +1,29 @@
-name: Enable Runner
+name: Tunnel Runner
 
 on:
   workflow_dispatch:
 
 jobs:
-  build:
+  setup-keys:
     runs-on: ubuntu-latest
-    timeout-minutes: 355
-
     steps:
-      # шаг 1: настраиваем ssh-сервер на воркере и запускаем туннель
-      - name: Setup SSH Server and Tunnel
-        env:
-          VDS_IP: ${{ secrets.VDS_IP }}
-          VDS_USER: ${{ secrets.VDS_USER }}
-          VDS_SSH_PRIVATE_KEY: ${{ secrets.VDS_SSH_PRIVATE_KEY }}
+      - name: Generate SSH Keys and Display Instructions
         run: |
-          # настраиваем ssh-сервер
-          sudo apt-get update && sudo apt-get install -y openssh-server
-          # !!! не забудь поменять пароль !!!
-          sudo useradd -m -s /bin/bash doxile && echo "doxile:testing" | sudo chpasswd
-          sudo usermod -aG sudo doxile
-          sudo service ssh start
-
-          # настраиваем ssh-клиент для туннеля
-          mkdir -p ~/.ssh
-          echo "${VDS_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -t rsa -b 4096 -f github_action_key -N ""
+          PRIVATE_KEY=$(cat github_action_key)
+          PUBLIC_KEY=$(cat github_action_key.pub)
           
-          # добавляем vds в известные хосты
-          ssh-keyscan -H "${VDS_IP}" >> ~/.ssh/known_hosts
-
-          # запускаем обратный туннель в фоновом режиме
-          ssh -f -N -R 0.0.0.0:2222:localhost:22 ${VDS_USER}@${VDS_IP}
-          echo "Tunnel process started in the background."
-
-      # шаг 2: выводим информацию для подключения
-      - name: Display Connection Info
-        env:
-          VDS_IP: ${{ secrets.VDS_IP }}
-        run: |
-          echo "========================================================================="
-          echo "Tunnel should be active now."
-          echo "If it fails, check your keys and VDS SSH settings."
-          echo ""
-          echo "SSH command to connect:"
-          echo "ssh doxile@${VDS_IP} -p 2222"
-          echo ""
-          echo "Password: YourStrongPasswordHere (the one you set)"
-          echo "========================================================================="
-      
-      # шаг 3: рабочий цикл
-      - name: Keep Alive
-        run: |
-          sleep 21000 # ~5 часов 50 минут
+          echo "====================== ВНИМАНИЕ! РАЗОВАЯ НАСТРОЙКА ======================"
+          echo "1. В секретах твоего репозитория GitHub создай секрет с именем 'VDS_SSH_PRIVATE_KEY'."
+          echo "2. Вставь в него ВЕСЬ текст ниже (от '-----BEGIN...' до '...END RSA PRIVATE KEY-----'):"
+          echo "----------------------------- ПРИВАТНЫЙ КЛЮЧ -----------------------------"
+          echo "$PRIVATE_KEY"
+          echo "-----------------------------------------------------------------------"
+          echo "3. Подключись к своему VDS и выполни эту команду, чтобы добавить публичный ключ:"
+          echo 'echo "'"$PUBLIC_KEY"'" >> /home/tunneler/.ssh/authorized_keys'
+          echo "-----------------------------------------------------------------------"
+          echo "4. После этого останови (Cancel) этот запуск и удали этот YML файл."
+          echo "   Затем создай новый YML файл с кодом из 'Этапа 4' гайда."
+          echo "======================================================================="
+          
+          sleep 3600
