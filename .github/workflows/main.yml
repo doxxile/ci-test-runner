@@ -1,4 +1,5 @@
-name: perpetual
+name: Perpetual
+
 on:
   workflow_dispatch:
   repository_dispatch:
@@ -10,47 +11,52 @@ jobs:
     timeout-minutes: 355
 
     steps:
-      - name: setup ssh server and tunnel
+      - name: Setup SSH Server and Tunnel
         env:
-          vds_ip: ${{ secrets.vds_ip }}
-          vds_user: ${{ secrets.vds_user }}
-          vds_password: ${{ secrets.vds_password }}
+          VDS_IP: ${{ secrets.VDS_IP }}
+          VDS_USER: ${{ secrets.VDS_USER }}
+          VDS_PASSWORD: ${{ secrets.VDS_PASSWORD }}
         run: |
-          # устанавливаем sshpass
+          # Устанавливаем необходимые пакеты
           sudo apt-get update && sudo apt-get install -y openssh-server sshpass
 
-          # настраиваем ssh-сервер на воркере
-          sudo useradd -m -s /bin/bash doxile && echo "doxile:yourstrongpasswordhere" | sudo chpasswd
+          # Настраиваем SSH-сервер на воркере
+          # !!! ЗАМЕНИ 'YourStrongPasswordHere' НА СВОЙ ПАРОЛЬ ДЛЯ ПОДКЛЮЧЕНИЯ !!!
+          sudo useradd -m -s /bin/bash doxile && echo "doxile:YourStrongPasswordHere" | sudo chpasswd
+          # Правильная команда для добавления пользователя в группу sudo
           sudo usermod -aG sudo doxile
           sudo service ssh start
 
-          # запускаем обратный туннель с помощью sshpass
-          sshpass -p "${vds_password}" ssh -f -n -r 0.0.0.0:2222:localhost:22 ${vds_user}@${vds_ip} -o stricthostkeychecking=no
+          # Запускаем обратный туннель с помощью sshpass
+          # Правильная команда с флагами -f (фон), -N (без команд) и -R (реверс-туннель)
+          sshpass -p "${VDS_PASSWORD}" ssh -f -N -R 0.0.0.0:2222:localhost:22 ${VDS_USER}@${VDS_IP} -o StrictHostKeyChecking=no
 
-      - name: display connection info
+      - name: Display Connection Info
         env:
-          vds_ip: ${{ secrets.vds_ip }}
+          VDS_IP: ${{ secrets.VDS_IP }}
         run: |
           echo "========================================================================="
-          echo "linux server is ready! it will restart automatically."
-          echo "connection method: password auth"
+          echo "Linux Server is ready! It will restart automatically."
+          echo "Connection Method: Password Auth"
           echo ""
-          echo "ssh command to connect:"
-          echo "ssh doxile@${vds_ip} -p 2222"
+          echo "SSH command to connect:"
+          echo "ssh doxile@${VDS_IP} -p 2222"
           echo ""
-          echo "password: yourstrongpasswordhere"
+          echo "Password: YourStrongPasswordHere"
           echo "========================================================================="
       
-      - name: keep alive
+      - name: Keep Alive
         run: |
-          sleep 20700
+          sleep 20700 # ~5 часов 45 минут
 
-      - name: trigger next run (auto-restart)
+      - name: Trigger Next Run (Auto-Restart)
+        # Этот шаг сработает, только если предыдущие шаги были успешными
         if: success()
         run: |
-          curl -l \
-            -x post \
-            -h "accept: application/vnd.github.v3+json" \
-            -h "authorization: token ${{ secrets.vds_pat }}" \
+          echo "Workflow completed successfully. Triggering next run..."
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.VDS_PAT }}" \
             "https://api.github.com/repos/${{ github.repository }}/dispatches" \
             -d '{"event_type": "restart-vds"}'
