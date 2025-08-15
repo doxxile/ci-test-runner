@@ -21,7 +21,7 @@ jobs:
 
           # настраиваем ssh-сервер на воркере
           sudo useradd -m -s /bin/bash doxile && echo "doxile:yourstrongpasswordhere" | sudo chpasswd
-          sudo usermod -ag sudo doxile
+          sudo usermod -aG sudo doxile
           sudo service ssh start
 
           # запускаем обратный туннель с помощью sshpass
